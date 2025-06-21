@@ -1,0 +1,119 @@
+version: '3.8'
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    container_name: superagi_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: superagi
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - superagi_network
+  # Redis for task queue
+  redis:
+    image: redis:latest
+    container_name: superagi_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - superagi_network
+  # Chroma Vector Database
+  chroma:
+    image: ghcr.io/chroma-core/chroma:latest
+    container_name: superagi_chroma
+    restart: always
+    volumes:
+      - chroma_data:/chroma/chroma
+    ports:
+      - "8000:8000"
+    networks:
+      - superagi_network
+  # SuperAGI Backend
+  superagi:
+    build:
+      context: ../backend/SuperAGI
+      dockerfile: Dockerfile
+    container_name: superagi_backend
+    restart: always
+    depends_on:
+      - postgres
+      - redis
+      - chroma
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=superagi
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - VECTORSTORE_HOST=chroma
+      - VECTORSTORE_PORT=8000
+      - ENCRYPTION_KEY=12345678901234567890123456789012
+      - ENV=PROD
+    volumes:
+      - ../backend/SuperAGI/config.yaml:/app/config.yaml
+      - superagi_models:/app/models
+      - superagi_workspace:/app/workspace
+      - superagi_vectorstore:/app/vectorstore
+    ports:
+      - "8001:8001"
+    networks:
+      - superagi_network
+  # SuperAGI Celery Worker
+  celery_worker:
+    build:
+      context: ../backend/SuperAGI
+      dockerfile: DockerfileCelery
+    container_name: superagi_celery
+    restart: always
+    depends_on:
+      - postgres
+      - redis
+      - superagi
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=superagi
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ENCRYPTION_KEY=12345678901234567890123456789012
+      - ENV=PROD
+    volumes:
+      - ../backend/SuperAGI/config.yaml:/app/config.yaml
+      - superagi_models:/app/models
+      - superagi_workspace:/app/workspace
+      - superagi_vectorstore:/app/vectorstore
+    networks:
+      - superagi_network
+  # Simplified Frontend with red background
+  frontend:
+    build:
+      context: ../web_interface
+      dockerfile: Dockerfile.simple
+    container_name: superagi_frontend
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - superagi
+    networks:
+      - superagi_network
+networks:
+  superagi_network:
+    driver: bridge
+volumes:
+  postgres_data:
+  chroma_data:
+  superagi_models:
+  superagi_workspace:
+  superagi_vectorstore:

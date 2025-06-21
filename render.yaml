@@ -1,0 +1,23 @@
+name: evolve-backend
+services:
+  - type: web
+    name: evolve-api
+    env: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: evolve-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 1440
+      - key: CORS_ORIGINS
+        value: "https://evolve-frontend.vercel.app"
+
+databases:
+  - name: evolve-db
+    plan: free

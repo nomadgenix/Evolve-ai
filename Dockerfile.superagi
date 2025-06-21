@@ -1,0 +1,32 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    curl \
+    libpq-dev \
+    g++ \
+    cmake \
+    ninja-build \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy SuperAGI code
+COPY . .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+ENV ENCRYPTION_KEY=12345678901234567890123456789012
+
+# Expose port
+EXPOSE 8001
+
+# Run the application
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
